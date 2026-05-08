@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "prestart": "prisma generate",
     "start": "node src/server.js",
     "postinstall": "prisma generate"
   },
