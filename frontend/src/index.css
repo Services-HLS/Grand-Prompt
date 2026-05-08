@@ -1,0 +1,253 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* George Institute palette: deep purple primary, lavender accents, white surfaces */
+    --background: 0 0% 100%;
+    --foreground: 270 35% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 270 35% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 270 35% 12%;
+
+    --primary: 273 58% 30%;            /* ~#4B1F7A George purple */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 275 40% 96%;
+    --secondary-foreground: 273 58% 25%;
+
+    --muted: 275 30% 95%;
+    --muted-foreground: 270 12% 40%;
+
+    --accent: 275 60% 92%;             /* light lavender */
+    --accent-foreground: 273 58% 25%;
+
+    --destructive: 0 75% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 275 25% 88%;
+    --input: 275 25% 88%;
+    --ring: 273 58% 30%;
+
+    --radius: 0.5rem;
+
+    /* App-specific tokens — George Institute themed */
+    --app-bg: 280 30% 97%;
+    --prompt-box: 280 35% 98%;
+
+    /* Default stage / steps fallbacks (George purple) */
+    --stage: 273 58% 30%;
+    --stage-foreground: 0 0% 100%;
+    --steps: 273 45% 55%;
+    --steps-foreground: 0 0% 100%;
+
+    /* Stage family palettes (Microsoft Lists-style: bold for Stage, soft for Steps) */
+    /* Stage 1 — Idea development (purple/blue) */
+    --stage-1: 273 58% 30%;
+    --stage-1-foreground: 0 0% 100%;
+    --steps-1: 273 50% 88%;
+    --steps-1-foreground: 273 58% 25%;
+
+    /* Stage 2 — Proposal development (wine/red) */
+    --stage-2: 345 65% 38%;
+    --stage-2-foreground: 0 0% 100%;
+    --steps-2: 345 55% 90%;
+    --steps-2-foreground: 345 60% 30%;
+
+    /* Stage 3 — Submission and response (slate/teal) */
+    --stage-3: 200 35% 35%;
+    --stage-3-foreground: 0 0% 100%;
+    --steps-3: 200 35% 90%;
+    --steps-3-foreground: 200 40% 25%;
+
+    --like: 142 60% 38%;
+    --like-foreground: 0 0% 100%;
+    --dislike: 0 75% 50%;
+    --dislike-foreground: 0 0% 100%;
+    --gradient-header: linear-gradient(135deg, hsl(273 58% 30%), hsl(285 55% 42%));
+    --shadow-card: 0 1px 3px hsl(273 30% 20% / 0.08);
+    --shadow-card-hover: 0 6px 20px hsl(273 30% 20% / 0.14);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Rich text editor styles */
+.ProseMirror {
+  outline: none;
+  min-height: 150px;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror li {
+  margin: 0.25rem 0;
+}
+
+.prose {
+  max-width: none;
+}
+
+.prose p {
+  margin: 0.5rem 0;
+}
+
+.prose ul, .prose ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose h1, .prose h2, .prose h3 {
+  margin: 0.75rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.prose strong {
+  font-weight: 700;
+}
+
+.prose em {
+  font-style: italic;
+}
+/* Line clamp utilities for freezing text to specific lines */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Rich text styling for prompts - THIS IS KEY */
+.rich-prompt-cell {
+  display: block;
+  width: 100%;
+}
+
+/* Make all inner elements inline so they don't break the clamp */
+.rich-prompt-cell p,
+.rich-prompt-cell div,
+.rich-prompt-cell span {
+  display: inline;
+}
+
+/* Make links blue and clickable */
+.rich-prompt-cell a {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.rich-prompt-cell a:hover {
+  color: #2563eb;
+}
+
+/* Preserve bold formatting */
+.rich-prompt-cell strong,
+.rich-prompt-cell b {
+  font-weight: 700;
+  display: inline;
+}
+
+/* Preserve italic formatting */
+.rich-prompt-cell em,
+.rich-prompt-cell i {
+  font-style: italic;
+  display: inline;
+}

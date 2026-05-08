@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum PromptStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReactionValue {
+  LIKE
+  DISLIKE
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(USER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  prompts      Prompt[]   @relation("PromptAuthor")
+  feedbacks    Feedback[]
+  reactions    Reaction[]
+}
+
+model Prompt {
+  id              Int          @id @default(autoincrement())
+  stage           String
+  steps           String
+  question        String
+  promptText      String
+  category        String       @default("grant")
+  status          PromptStatus @default(PENDING)
+  rejectionReason String?
+  submittedAt     DateTime     @default(now())
+  approvedAt      DateTime?
+  approvedBy      Int?
+  createdById     Int
+  createdBy       User         @relation("PromptAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+  feedbacks       Feedback[]
+  reactions       Reaction[]
+}
+
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  promptId  Int
+  userId    Int
+  feedback  String
+  createdAt DateTime @default(now())
+  prompt    Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reaction {
+  id       Int           @id @default(autoincrement())
+  promptId Int
+  userId   Int
+  value    ReactionValue
+  prompt   Prompt        @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([promptId, userId])
+}
