@@ -13,21 +13,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
       - name: Build Backend
         # This "working-directory" tells GitHub to enter the backend folder first
         working-directory: backend
         run: |
-          npm install
-          npx prisma generate
-          # This gives the server permission to run the database code
-          chmod -R +x node_modules/.bin
+          npm ci
 
       - name: Upload for Azure
         uses: actions/upload-artifact@v4
