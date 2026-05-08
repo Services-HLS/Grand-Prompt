@@ -2,8 +2,7 @@ name: Build and deploy Node.js app to Azure Web App - prompts-backend-api-001
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - "backend/**"
       - ".github/workflows/**"
@@ -15,23 +14,25 @@ jobs:
     permissions:
       contents: read
 
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22.x"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Prepare package
-        run: |
-          echo "Packaging backend for deploy"
+      - name: Install backend deps
+        run: npm ci
+        working-directory: backend
 
-      - name: Upload artifact for deployment job
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: backend
+
+      - name: Upload backend artifact
         uses: actions/upload-artifact@v4
         with:
           name: node-app
@@ -45,13 +46,13 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
           path: backend
 
-      - name: Login to Azure
+      - name: Azure login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_E27F8FC928BB4F47BF5D03EFA3B873A8 }}
@@ -59,7 +60,6 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_22AC53C9A5314F18B2704D60E7759416 }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: "prompts-backend-api-001"
