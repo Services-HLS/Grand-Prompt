@@ -34,6 +34,8 @@ jobs:
           name: node-app
           # We only upload the backend folder, making it the "Root" for Azure
           path: backend/
+          # Keep hidden folders like node_modules/.prisma required by Prisma client
+          include-hidden-files: true
 
   deploy:
     runs-on: ubuntu-latest
