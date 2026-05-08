@@ -5,11 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "prestart": "prisma generate",
     "start": "node src/server.js",
-    "postinstall": "npx prisma generate",
-    "seed": "node prisma/seed.js",
-    "prisma:generate": "npx prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
