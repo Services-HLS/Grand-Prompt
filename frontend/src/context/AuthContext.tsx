@@ -86,7 +86,7 @@ export type User = {
 
 const STORAGE_KEY = "grant-prompts-auth-user";
 const TOKEN_KEY = "grant-prompts-auth-token";
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 type AuthResult = { ok: true } | { ok: false; error: string };
 

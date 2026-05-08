@@ -268,7 +268,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { type Prompt } from "@/data/prompts";
 import { useAuth } from "@/context/AuthContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export type PromptFeedback = {
   id: number;
