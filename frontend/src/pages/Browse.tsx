@@ -59,8 +59,7 @@ const Browse = () => {
 
   const categoryPrompts = useMemo(() => {
     const categorySpecific = getCategoryPrompts();
-    // return categorySpecific.filter(p => p.status === "approved");
-    return categorySpecific;
+    return categorySpecific.filter((p) => p.status === "approved");
   }, [currentCategory, getCategoryPrompts]);
 
   useEffect(() => {
