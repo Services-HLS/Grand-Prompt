@@ -261,7 +261,7 @@ const Browse = () => {
                         <div className="group/prompt relative line-clamp-2 max-w-[350px] pr-6">
                           <RenderPromptCell html={p.promptText} />
                           <SquareArrowOutUpRight
-                            className="w-4 h-4 text-muted-foreground absolute top-0 right-0 opacity-0 transition-opacity group-hover/prompt:opacity-100"
+                            className="w-4 h-4 text-muted-foreground absolute top-0 right-0 opacity-100"
                             aria-hidden="true"
                           />
                         </div>
@@ -338,7 +338,7 @@ const Browse = () => {
                     <div className="relative line-clamp-2 pr-6">
                       <RenderPromptCell html={p.promptText} />
                       <SquareArrowOutUpRight
-                        className="w-4 h-4 text-muted-foreground absolute top-0 right-0 opacity-0 transition-opacity group-hover/prompt:opacity-100"
+                        className="w-4 h-4 text-muted-foreground absolute top-0 right-0 opacity-100"
                         aria-hidden="true"
                       />
                     </div>
