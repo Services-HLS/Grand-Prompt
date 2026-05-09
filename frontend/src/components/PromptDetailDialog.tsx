@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,8 @@ interface PromptDetailDialogProps {
   }>;
   userRole?: "employee" | "moderator";
   userName?: string;
+  showFeedbackSection?: boolean;
+  extraFooterActions?: ReactNode;
 }
 
 const PromptDetailDialog = ({ 
@@ -39,7 +41,9 @@ const PromptDetailDialog = ({
   onEditPrompt,
   existingFeedbacks = [],
   userRole = "employee",
-  userName = ""
+  userName = "",
+  showFeedbackSection = true,
+  extraFooterActions,
 }: PromptDetailDialogProps) => {
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -222,7 +226,7 @@ const PromptDetailDialog = ({
                 </div>
               </div>
 
-              {existingFeedbacks.length > 0 && (
+              {showFeedbackSection && existingFeedbacks.length > 0 && (
                 <div className="space-y-2 border-t border-border pt-3">
                   <Label className="text-sm font-semibold">💬 Previous Feedback</Label>
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
@@ -241,22 +245,24 @@ const PromptDetailDialog = ({
                 </div>
               )}
 
-              <div className="space-y-2 border-t border-border pt-3">
-                <Label className="text-sm font-semibold">
-                  {userRole === "moderator" ? "📋 Add Review Notes" : "💬 Your Feedback"}
-                </Label>
-                <Textarea
-                  placeholder={
-                    userRole === "moderator" 
-                      ? "Add review notes, suggestions for improvement, or approval comments..."
-                      : "Share your thoughts about this prompt. What works well? What could be improved?"
-                  }
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
-              </div>
+              {showFeedbackSection && (
+                <div className="space-y-2 border-t border-border pt-3">
+                  <Label className="text-sm font-semibold">
+                    {userRole === "moderator" ? "📋 Add Review Notes" : "💬 Your Feedback"}
+                  </Label>
+                  <Textarea
+                    placeholder={
+                      userRole === "moderator"
+                        ? "Add review notes, suggestions for improvement, or approval comments..."
+                        : "Share your thoughts about this prompt. What works well? What could be improved?"
+                    }
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
+              )}
             </>
           )}
         </div>
@@ -266,12 +272,15 @@ const PromptDetailDialog = ({
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
-            <Button 
-              onClick={handleSaveFeedback} 
-              disabled={!feedback.trim() || isSubmitting}
-            >
-              {isSubmitting ? "Saving..." : (userRole === "moderator" ? "Save Review" : "Submit Feedback")}
-            </Button>
+            {extraFooterActions}
+            {showFeedbackSection && (
+              <Button
+                onClick={handleSaveFeedback}
+                disabled={!feedback.trim() || isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : (userRole === "moderator" ? "Save Review" : "Submit Feedback")}
+              </Button>
+            )}
           </DialogFooter>
         )}
       </DialogContent>
