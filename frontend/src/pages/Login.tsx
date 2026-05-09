@@ -164,15 +164,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserCog } from "lucide-react";
 
 const Login = () => {
-  const { user, login } = useAuth();
+  const { user, login, getAllUsers } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [quickUsers, setQuickUsers] = useState<Array<{ name: string; email: string; role: "moderator" | "employee" }>>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+
+  const moderators = quickUsers.filter((u) => u.role === "moderator");
+  const employees = quickUsers.filter((u) => u.role === "employee");
 
   useEffect(() => {
     if (user) navigate(user.role === "moderator" ? "/pending" : "/", { replace: true });
   }, [user, navigate]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadUsers = async () => {
+      setUsersLoading(true);
+      const users = await getAllUsers();
+      if (!mounted) return;
+      setQuickUsers(users);
+      setUsersLoading(false);
+    };
+
+    loadUsers();
+
+    return () => {
+      mounted = false;
+    };
+  }, [getAllUsers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,14 +265,23 @@ const Login = () => {
                   Moderator
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => quickLogin("moderator@example.com", "Password@123")}
-                >
-                  👤 Moderator (Backend)
-                </Button>
+              <CardContent className="grid gap-2">
+                {usersLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading users...</p>
+                ) : moderators.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No moderators found in backend.</p>
+                ) : (
+                  moderators.map((moderator) => (
+                    <Button
+                      key={moderator.email}
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => quickLogin(moderator.email, "Password@123")}
+                    >
+                      👤 {moderator.name}
+                    </Button>
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -262,49 +294,28 @@ const Login = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => quickLogin("jonny@example.com", "Password@123")}
-                >
-                  👤 Jonny Lo
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => quickLogin("karthika@example.com", "Password@123")}
-                >
-                  👤 Karthika Kumar
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => quickLogin("admin@example.com", "Password@123")}
-                >
-                  👤 Admin User
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => quickLogin("moderator@example.com", "Password@123")}
-                >
-                  👤 Moderator One
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => quickLogin("jonny@example.com", "Password@123")}
-                >
-                  👤 Jonny Lo (repeat)
-                </Button>
+                {usersLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading users...</p>
+                ) : employees.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No employees found in backend.</p>
+                ) : (
+                  employees.map((employee) => (
+                    <Button
+                      key={employee.email}
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => quickLogin(employee.email, "Password@123")}
+                    >
+                      👤 {employee.name}
+                    </Button>
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
         </div>
 
-        <p className="text-xs text-center text-muted-foreground mt-4">
-          Demo credentials (seeded backend): password for all users is "Password@123"
-        </p>
+       
       </div>
     </div>
   );

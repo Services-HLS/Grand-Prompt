@@ -75,4 +75,20 @@ router.post("/login", async (req, res) => {
   });
 });
 
+router.get("/users", async (_req, res) => {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
+
+  return res.json(users);
+});
+
 export default router;

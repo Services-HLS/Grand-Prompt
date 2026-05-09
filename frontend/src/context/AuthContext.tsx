@@ -95,7 +95,7 @@ type AuthContextValue = {
   token: string | null;
   login: (email: string, password: string) => Promise<AuthResult>;
   logout: () => void;
-  getAllUsers: () => User[];
+  getAllUsers: () => Promise<User[]>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -158,8 +158,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const getAllUsers = () => {
-    return user ? [user] : [];
+  const getAllUsers = async (): Promise<User[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/users`);
+      if (!response.ok) return [];
+
+      const rows = await response.json();
+      if (!Array.isArray(rows)) return [];
+
+      return rows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        name: row.name,
+        role: mapBackendRole(row.role),
+      }));
+    } catch {
+      return [];
+    }
   };
 
   return (
