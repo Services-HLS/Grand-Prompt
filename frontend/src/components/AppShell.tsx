@@ -90,7 +90,6 @@ import { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Facebook, Instagram, Linkedin, LogOut, Twitter, User, Youtube } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useCategory } from "@/context/CategoryContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import CategoryDropdown from "./CategoryDropdown";
@@ -112,7 +111,6 @@ const moderatorNav: NavItem[] = [
 
 const AppShell = ({ children }: { children: ReactNode }) => {
   const { user, logout } = useAuth();
-  const { currentCategory } = useCategory();
   const navigate = useNavigate();
   const items = user?.role === "moderator" ? moderatorNav : employeeNav;
 
@@ -127,16 +125,16 @@ const AppShell = ({ children }: { children: ReactNode }) => {
           NAVBAR: Using the deep purple (#4c2f73) from George Institute 
       */}
       <nav className="bg-[#4c2f73] text-white sticky top-0 z-50 shadow-md">
-        <div className="max-w-full mx-auto px-0">
-          <div className="flex justify-between items-center h-20">
+        <div className="max-w-full mx-auto px-3 sm:px-4 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
 
             {/* LEFT SECTION: Logo and Brand Area */}
-            <div className="flex items-center gap-8">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-6">
               <NavLink to="/" className="flex-shrink-0 transition-opacity hover:opacity-90">
                 <img
                   src="/george-institute-logo.png"
                   alt="The George Institute"
-                  className="h-40 w-auto object-contain"
+                  className="h-9 sm:h-10 md:h-12 w-auto object-contain"
                 />
               </NavLink>
 
@@ -144,34 +142,13 @@ const AppShell = ({ children }: { children: ReactNode }) => {
               <div className="hidden md:block h-8 w-[1px] bg-white/20" />
 
               {/* Category Dropdown Area */}
-              <div className="flex items-center">
+              <div className="flex items-center min-w-[140px] sm:min-w-[180px]">
                 <CategoryDropdown />
               </div>
             </div>
 
-            {/* MIDDLE/RIGHT SECTION: Navigation Links */}
-            <div className="hidden lg:flex items-center gap-1">
-              {items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end
-                  className={({ isActive }) =>
-                    cn(
-                      "px-4 py-2 text-sm font-bold tracking-wide transition-all border-b-2",
-                      isActive
-                        ? "text-white border-white"
-                        : "text-white/70 border-transparent hover:text-white hover:border-white/30"
-                    )
-                  }
-                >
-                  {item.label.toUpperCase()}
-                </NavLink>
-              ))}
-            </div>
-
             {/* RIGHT SECTION: User Profile & Logout */}
-            <div className="flex items-center gap-4 border-l border-white/20 ml-4 pl-6">
+            <div className="flex items-center gap-2 sm:gap-3 md:border-l md:border-white/20 md:ml-2 md:pl-4">
               {user && (
                 <div className="hidden xl:flex flex-col items-end mr-2">
                   <span className="text-xs font-black uppercase tracking-tighter">
@@ -187,13 +164,36 @@ const AppShell = ({ children }: { children: ReactNode }) => {
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="bg-transparent border border-white/40 text-white hover:bg-white hover:text-[#4c2f73] font-bold rounded-none px-4"
+                className="bg-transparent border border-white/40 text-white hover:bg-white hover:text-[#4c2f73] font-bold rounded-none px-2 sm:px-4"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                LOGOUT
+                <LogOut className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">LOGOUT</span>
               </Button>
             </div>
 
+          </div>
+
+          {/* NAVIGATION TABS: visible on all sizes, scroll on mobile */}
+          <div className="mt-2 border-t border-white/20 pt-2">
+            <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap pb-1">
+              {items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end
+                  className={({ isActive }) =>
+                    cn(
+                      "shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold tracking-wide transition-all border-b-2",
+                      isActive
+                        ? "text-white border-white"
+                        : "text-white/70 border-transparent hover:text-white hover:border-white/30"
+                    )
+                  }
+                >
+                  {item.label.toUpperCase()}
+                </NavLink>
+              ))}
+            </div>
           </div>
         </div>
       </nav>

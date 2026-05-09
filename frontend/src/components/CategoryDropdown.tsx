@@ -12,7 +12,7 @@ const CategoryDropdown = () => {
 
   return (
     <Select value={currentCategory.id} onValueChange={setCurrentCategory}>
-      <SelectTrigger className="w-[180px] bg-primary/10 border-primary/20">
+      <SelectTrigger className="w-[140px] sm:w-[180px] bg-primary/10 border-primary/20">
         <SelectValue>
           <span className="flex items-center gap-2">
             <span>{currentCategory.icon}</span>

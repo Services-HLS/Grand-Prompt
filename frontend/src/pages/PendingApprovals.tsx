@@ -280,15 +280,20 @@ const PendingApprovals = () => {
                     Submitted by <span className="font-medium text-foreground">{p.createdBy}</span> ·{" "}
                     {new Date(p.submittedAt).toLocaleString()}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <Button
                       size="sm"
-                      className="bg-like text-like-foreground hover:bg-like/90"
+                      className="bg-like text-like-foreground hover:bg-like/90 flex-1 sm:flex-none"
                       onClick={() => handleApprove(p.id)}
                     >
                       <Check className="w-4 h-4 mr-1" /> Approve
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => openReject(p.id)}>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="flex-1 sm:flex-none"
+                      onClick={() => openReject(p.id)}
+                    >
                       <X className="w-4 h-4 mr-1" /> Reject
                     </Button>
                   </div>
@@ -298,7 +303,7 @@ const PendingApprovals = () => {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
+            <div className="flex flex-wrap justify-center items-center gap-2 mt-6">
               <Button
                 variant="outline"
                 size="sm"

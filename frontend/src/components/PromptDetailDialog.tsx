@@ -268,11 +268,15 @@ const PromptDetailDialog = ({
         </div>
 
         {!isEditing && (
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
-            {extraFooterActions}
+            {extraFooterActions && (
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                {extraFooterActions}
+              </div>
+            )}
             {showFeedbackSection && (
               <Button
                 onClick={handleSaveFeedback}
