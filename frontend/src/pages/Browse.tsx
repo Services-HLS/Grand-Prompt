@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ThumbsDown, ThumbsUp, MessageCircle, SquareArrowOutUpRight } from "lucide-react";
 import { usePrompts } from "@/context/PromptsContext";
 import { useCategory } from "@/context/CategoryContext";
@@ -20,6 +20,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/RichTextEditor";
 import { cn } from "@/lib/utils";
 import { stageBadgeClass, stepsBadgeClass } from "@/lib/stageColors";
 import PromptDetailDialog from "@/components/PromptDetailDialog";
@@ -52,6 +62,12 @@ const Browse = () => {
   const [stepsFilter, setStepsFilter] = useState<string>(ALL_STEPS);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [promptOnlyPrompt, setPromptOnlyPrompt] = useState<Prompt | null>(null);
+  const [isPromptOnlyOpen, setIsPromptOnlyOpen] = useState(false);
+  const [feedbackOnlyPrompt, setFeedbackOnlyPrompt] = useState<Prompt | null>(null);
+  const [isFeedbackOnlyOpen, setIsFeedbackOnlyOpen] = useState(false);
+  const [feedbackOnlyDraft, setFeedbackOnlyDraft] = useState("");
+  const [isSavingFeedbackOnly, setIsSavingFeedbackOnly] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,19 +132,76 @@ const Browse = () => {
     }
   };
 
-  const handlePromptClick = (prompt: Prompt) => {
+  const openDetailDialog = (prompt: Prompt) => {
     setSelectedPrompt(prompt);
     setIsDialogOpen(true);
   };
 
+  const getVisibleFeedbacksForPrompt = useCallback(
+    (promptId: number) => {
+      const all = getFeedbacks(promptId);
+      const role = user?.role ?? "employee";
+      if (role === "moderator") return all;
+      const uid = user?.id != null ? String(user.id) : "";
+      const userName = user?.name ?? "";
+      return all.filter((fb) => {
+        if (fb.userId && uid && fb.userId === uid) return true;
+        if (!uid && userName && fb.userName === userName) return true;
+        return false;
+      });
+    },
+    [getFeedbacks, user?.id, user?.name, user?.role],
+  );
+
+  const openFeedbackFromIcon = (prompt: Prompt) => {
+    const visible = getVisibleFeedbacksForPrompt(prompt.id);
+    if (visible.length > 0) {
+      setFeedbackOnlyPrompt(prompt);
+      setFeedbackOnlyDraft("");
+      setIsFeedbackOnlyOpen(true);
+    } else {
+      openDetailDialog(prompt);
+    }
+  };
+
+  const openPromptOnly = (prompt: Prompt) => {
+    setPromptOnlyPrompt(prompt);
+    setIsPromptOnlyOpen(true);
+  };
+
+  const closeDetailDialog = () => {
+    setIsDialogOpen(false);
+  };
+
+  const closeFeedbackOnly = () => {
+    setIsFeedbackOnlyOpen(false);
+    setFeedbackOnlyPrompt(null);
+    setFeedbackOnlyDraft("");
+  };
+
+  const closePromptOnly = () => {
+    setIsPromptOnlyOpen(false);
+    setPromptOnlyPrompt(null);
+  };
+
   const handleSaveFeedback = async (promptId: number, feedback: string) => {
     if (user) {
-      addFeedback(promptId, feedback, user.email, user.name);
+      await addFeedback(promptId, feedback, user.email, user.name);
+    }
+  };
+
+  const submitFeedbackOnly = async () => {
+    if (!feedbackOnlyPrompt || !user || !feedbackOnlyDraft.trim()) return;
+    setIsSavingFeedbackOnly(true);
+    try {
+      await addFeedback(feedbackOnlyPrompt.id, feedbackOnlyDraft.trim(), user.email, user.name);
+      setFeedbackOnlyDraft("");
+    } finally {
+      setIsSavingFeedbackOnly(false);
     }
   };
 
   const handleEditPrompt = async (promptId: number, updates: Partial<Prompt>) => {
-    console.log("Updating prompt with:", updates);
     updatePrompt(promptId, updates);
   };
 
@@ -141,7 +214,8 @@ const Browse = () => {
       const matchesStage = stageFilter === ALL_STAGES || p.stage === stageFilter;
       const matchesSteps = stepsFilter === ALL_STEPS || p.steps === stepsFilter;
       const plainText = p.promptText.replace(/<[^>]*>/g, '');
-      const matchesQuery = !q || plainText.toLowerCase().includes(q);
+      const plainAdditional = (p.additionalInput ?? '').replace(/<[^>]*>/g, '');
+      const matchesQuery = !q || plainText.toLowerCase().includes(q) || plainAdditional.toLowerCase().includes(q);
       return matchesStage && matchesSteps && matchesQuery;
     });
   }, [visible, search, stageFilter, stepsFilter]);
@@ -162,12 +236,6 @@ const Browse = () => {
   const totalLikes = visible.reduce((s, p) => s + p.likes, 0);
   const totalDislikes = visible.reduce((s, p) => s + p.dislikes, 0);
   const existingFeedbacks = selectedPrompt ? getFeedbacks(selectedPrompt.id) : [];
-
-  // Helper function to get feedback count for a prompt
-  const getFeedbackCount = (promptId: number) => {
-    const feedbacks = getFeedbacks(promptId);
-    return feedbacks.length;
-  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -235,28 +303,38 @@ const Browse = () => {
                 {paginatedPrompts.map((p) => {
                   const liked = userReactions[p.id] === "like";
                   const disliked = userReactions[p.id] === "dislike";
-                  const feedbackCount = getFeedbackCount(p.id);
 
                   return (
-                    <TableRow
-                      key={p.id}
-                      className="align-top cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => handlePromptClick(p)}
-                    >
-                      <TableCell className="align-top">
+                    <TableRow key={p.id} className="align-top hover:bg-muted/50 transition-colors">
+                      <TableCell
+                        className="align-top cursor-pointer"
+                        onClick={() => openDetailDialog(p)}
+                      >
                         <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", stageBadgeClass(p.stage))}>
                           {p.stage}
                         </span>
                       </TableCell>
-                      <TableCell className="align-top">
+                      <TableCell
+                        className="align-top cursor-pointer"
+                        onClick={() => openDetailDialog(p)}
+                      >
                         <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", stepsBadgeClass(p.stage))}>
                           {p.steps}
                         </span>
                       </TableCell>
-                      <TableCell className="text-sm italic text-muted-foreground align-top">
+                      <TableCell
+                        className="text-sm italic text-muted-foreground align-top cursor-pointer"
+                        onClick={() => openDetailDialog(p)}
+                      >
                         📌 {p.question.length > 70 ? p.question.substring(0, 70) + "..." : p.question}
                       </TableCell>
-                      <TableCell className="text-sm text-foreground align-top">
+                      <TableCell
+                        className="text-sm text-foreground align-top cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPromptOnly(p);
+                        }}
+                      >
                         <div className="group/prompt relative line-clamp-2 max-w-[350px] pr-6">
                           <RenderPromptCell html={p.promptText} />
                           <SquareArrowOutUpRight
@@ -265,10 +343,16 @@ const Browse = () => {
                           />
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm font-medium align-top">{p.createdBy}</TableCell>
+                      <TableCell
+                        className="text-sm font-medium align-top cursor-pointer"
+                        onClick={() => openDetailDialog(p)}
+                      >
+                        {p.createdBy}
+                      </TableCell>
                       <TableCell className="align-top" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-2">
                           <button
+                            type="button"
                             onClick={() => handleLike(p.id)}
                             aria-pressed={liked}
                             aria-label="Like prompt"
@@ -281,6 +365,7 @@ const Browse = () => {
                             <span>{p.likes}</span>
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDislike(p.id)}
                             aria-pressed={disliked}
                             aria-label="Dislike prompt"
@@ -293,11 +378,12 @@ const Browse = () => {
                             <span>{p.dislikes}</span>
                           </button>
                           <button
-                            onClick={() => handlePromptClick(p)}
+                            type="button"
+                            onClick={() => openFeedbackFromIcon(p)}
+                            aria-label="View feedback"
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                           >
                             <MessageCircle className="w-3.5 h-3.5" />
-                            <span>{feedbackCount}</span>
                           </button>
                         </div>
                       </TableCell>
@@ -313,27 +399,36 @@ const Browse = () => {
             {paginatedPrompts.map((p) => {
               const liked = userReactions[p.id] === "like";
               const disliked = userReactions[p.id] === "dislike";
-              const feedbackCount = getFeedbackCount(p.id);
 
               return (
                 <article
                   key={p.id}
-                  className="bg-card rounded-xl p-4 shadow-card cursor-pointer hover:shadow-lg transition-all"
-                  onClick={() => handlePromptClick(p)}
+                  className="bg-card rounded-xl p-4 shadow-card hover:shadow-lg transition-all"
                 >
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", stageBadgeClass(p.stage))}>
-                      {p.stage}
-                    </span>
-                    <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", stepsBadgeClass(p.stage))}>
-                      {p.steps}
-                    </span>
+                  <div
+                    className="cursor-pointer mb-3"
+                    onClick={() => openDetailDialog(p)}
+                  >
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", stageBadgeClass(p.stage))}>
+                        {p.stage}
+                      </span>
+                      <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", stepsBadgeClass(p.stage))}>
+                        {p.steps}
+                      </span>
+                    </div>
+                    <p className="italic text-muted-foreground text-sm">
+                      📌 {p.question.length > 70 ? p.question.substring(0, 70) + "..." : p.question}
+                    </p>
                   </div>
-                  <p className="italic text-muted-foreground mb-3 text-sm">
-                    📌 {p.question.length > 70 ? p.question.substring(0, 70) + "..." : p.question}
-                  </p>
 
-                  <div className="group/prompt bg-prompt-box border border-border rounded-lg p-3 mb-3 text-sm leading-relaxed">
+                  <div
+                    className="group/prompt bg-prompt-box border border-border rounded-lg p-3 mb-3 text-sm leading-relaxed cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openPromptOnly(p);
+                    }}
+                  >
                     <div className="relative line-clamp-2 pr-6">
                       <RenderPromptCell html={p.promptText} />
                       <SquareArrowOutUpRight
@@ -343,12 +438,16 @@ const Browse = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2">
+                    <p
+                      className="text-xs text-muted-foreground cursor-pointer shrink min-w-0"
+                      onClick={() => openDetailDialog(p)}
+                    >
                       Created by <span className="font-medium text-foreground">{p.createdBy}</span>
                     </p>
-                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
+                        type="button"
                         onClick={() => handleLike(p.id)}
                         className={cn(
                           "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors border-0 cursor-pointer",
@@ -359,6 +458,7 @@ const Browse = () => {
                         <span>{p.likes}</span>
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDislike(p.id)}
                         className={cn(
                           "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors border-0 cursor-pointer",
@@ -369,11 +469,12 @@ const Browse = () => {
                         <span>{p.dislikes}</span>
                       </button>
                       <button
-                        onClick={() => handlePromptClick(p)}
+                        type="button"
+                        onClick={() => openFeedbackFromIcon(p)}
+                        aria-label="View feedback"
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
-                        <span>{feedbackCount}</span>
                       </button>
                     </div>
                   </div>
@@ -439,20 +540,135 @@ const Browse = () => {
         </div>
       </footer>
 
+      {promptOnlyPrompt && (
+        <Dialog
+          open={isPromptOnlyOpen}
+          onOpenChange={(open) => {
+            if (!open) closePromptOnly();
+          }}
+        >
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Full prompt</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="flex flex-wrap gap-2">
+                <span
+                  className={cn(
+                    "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                    stageBadgeClass(promptOnlyPrompt.stage),
+                  )}
+                >
+                  {promptOnlyPrompt.stage}
+                </span>
+                <span
+                  className={cn(
+                    "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                    stepsBadgeClass(promptOnlyPrompt.stage),
+                  )}
+                >
+                  {promptOnlyPrompt.steps}
+                </span>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Question addressed</Label>
+                <p className="text-sm mt-1 whitespace-pre-wrap">{promptOnlyPrompt.question}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Prompt</Label>
+                <div className="border border-border rounded-lg p-3 bg-card min-h-[120px]">
+                  <RichTextEditor
+                    value={promptOnlyPrompt.promptText}
+                    onChange={() => {}}
+                    readOnly
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" onClick={closePromptOnly}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {feedbackOnlyPrompt && (
+        <Dialog
+          open={isFeedbackOnlyOpen}
+          onOpenChange={(open) => {
+            if (!open) closeFeedbackOnly();
+          }}
+        >
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Feedback</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              {getVisibleFeedbacksForPrompt(feedbackOnlyPrompt.id).map((fb) => (
+                <div key={fb.id} className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground mb-1.5">
+                    <span className="font-medium text-foreground">{fb.userName}</span>
+                    <span className="mx-1.5">·</span>
+                    <span>{new Date(fb.createdAt).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{fb.feedback}</p>
+                </div>
+              ))}
+              {user && (
+                <div className="space-y-2 pt-3 border-t border-border">
+                  <Label htmlFor="browse-feedback-only-draft">
+                    {user.role === "moderator" ? "Add review notes" : "Add feedback"}
+                  </Label>
+                  <Textarea
+                    id="browse-feedback-only-draft"
+                    value={feedbackOnlyDraft}
+                    onChange={(e) => setFeedbackOnlyDraft(e.target.value)}
+                    placeholder={
+                      user.role === "moderator"
+                        ? "Optional notes for the author…"
+                        : "Share your thoughts on this prompt…"
+                    }
+                    rows={3}
+                    className="resize-y min-h-[80px]"
+                  />
+                  <Button
+                    type="button"
+                    onClick={submitFeedbackOnly}
+                    disabled={!feedbackOnlyDraft.trim() || isSavingFeedbackOnly}
+                  >
+                    {isSavingFeedbackOnly ? "Saving…" : "Submit"}
+                  </Button>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={closeFeedbackOnly}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <PromptDetailDialog
         prompt={selectedPrompt}
         isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDetailDialog}
         onSaveFeedback={handleSaveFeedback}
         onEditPrompt={handleEditPrompt}
         existingFeedbacks={existingFeedbacks.map(f => ({
           id: f.id,
+          userId: f.userId,
           userName: f.userName,
           feedback: f.feedback,
           createdAt: f.createdAt
         }))}
         userRole={user?.role}
         userName={user?.name}
+        viewerEmail={user?.email}
+        viewerId={user?.id}
       />
     </div>
   );

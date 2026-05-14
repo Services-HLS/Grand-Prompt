@@ -67,9 +67,11 @@ const PendingApprovals = () => {
       const matchesStage = stageFilter === ALL_STAGES || p.stage === stageFilter;
       const matchesSteps = stepsFilter === ALL_STEPS || p.steps === stepsFilter;
       const plainText = p.promptText.replace(/<[^>]*>/g, "");
+      const plainAdditional = (p.additionalInput ?? "").replace(/<[^>]*>/g, "");
       const matchesQuery =
         !q ||
         plainText.toLowerCase().includes(q) ||
+        plainAdditional.toLowerCase().includes(q) ||
         p.question.toLowerCase().includes(q) ||
         p.createdBy.toLowerCase().includes(q);
       return matchesStage && matchesSteps && matchesQuery;
@@ -375,6 +377,7 @@ const PendingApprovals = () => {
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         userRole={user?.role}
+        viewerEmail={user?.email}
         showFeedbackSection={false}
         extraFooterActions={
           selectedPrompt ? (

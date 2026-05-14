@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
 import { stageBadgeClass, stepsBadgeClass } from "@/lib/stageColors";
 import { Prompt } from "@/data/prompts";
 import RichTextEditor from "./RichTextEditor";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface PromptDetailDialogProps {
   prompt: Prompt | null;
@@ -23,13 +24,20 @@ interface PromptDetailDialogProps {
   onEditPrompt?: (promptId: number, updates: Partial<Prompt>) => void;
   existingFeedbacks?: Array<{
     id: number;
+    userId?: string;
     userName: string;
     feedback: string;
     createdAt: string;
   }>;
   userRole?: "employee" | "moderator";
   userName?: string;
+  /** Current user's email — with prompt.employeeId, gates "Additional input" to author + moderators only */
+  viewerEmail?: string;
+  /** Current user's id — matches feedback.userId so employees only see their own past feedback */
+  viewerId?: number;
   showFeedbackSection?: boolean;
+  /** When opening from Browse “feedback” icon, start with previous feedback expanded */
+  expandPreviousFeedbackOnOpen?: boolean;
   extraFooterActions?: ReactNode;
 }
 
@@ -42,27 +50,55 @@ const PromptDetailDialog = ({
   existingFeedbacks = [],
   userRole = "employee",
   userName = "",
+  viewerEmail,
+  viewerId,
   showFeedbackSection = true,
+  expandPreviousFeedbackOnOpen = false,
   extraFooterActions,
 }: PromptDetailDialogProps) => {
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editPromptText, setEditPromptText] = useState("");
+  const [editAdditionalInput, setEditAdditionalInput] = useState("");
   const [editQuestion, setEditQuestion] = useState("");
   const [editSteps, setEditSteps] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [previousFeedbackOpen, setPreviousFeedbackOpen] = useState(false);
 
   // Reset edit state when prompt changes
   useEffect(() => {
     if (prompt) {
       setEditPromptText(prompt.promptText);
+      setEditAdditionalInput(prompt.additionalInput ?? "");
       setEditQuestion(prompt.question);
       setEditSteps(prompt.steps);
     }
   }, [prompt]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setPreviousFeedbackOpen(false);
+      return;
+    }
+    setPreviousFeedbackOpen(Boolean(expandPreviousFeedbackOnOpen));
+  }, [isOpen, expandPreviousFeedbackOnOpen, prompt?.id]);
+
+  const visiblePreviousFeedbacks =
+    userRole === "moderator"
+      ? existingFeedbacks
+      : existingFeedbacks.filter((fb) => {
+          const uid = viewerId != null ? String(viewerId) : "";
+          if (fb.userId && uid && fb.userId === uid) return true;
+          if (!uid && userName && fb.userName === userName) return true;
+          return false;
+        });
+
   if (!prompt) return null;
+
+  const canSeeAdditionalInput =
+    userRole === "moderator" ||
+    (!!viewerEmail && viewerEmail.toLowerCase() === prompt.employeeId.toLowerCase());
 
   const handleSaveFeedback = async () => {
     if (!feedback.trim()) return;
@@ -77,17 +113,18 @@ const PromptDetailDialog = ({
 
   const handleEditClick = () => {
     setEditPromptText(prompt.promptText);
+    setEditAdditionalInput(prompt.additionalInput ?? "");
     setEditQuestion(prompt.question);
     setEditSteps(prompt.steps);
     setIsEditing(true);
   };
 
   const handleSaveEdit = async () => {
-    console.log("Saving edited prompt HTML:", editPromptText);
     setIsSaving(true);
     if (onEditPrompt) {
       await onEditPrompt(prompt.id, {
         promptText: editPromptText,  // This preserves HTML
+        additionalInput: editAdditionalInput.trim() ? editAdditionalInput : null,
         question: editQuestion,
         steps: editSteps,
       });
@@ -100,6 +137,7 @@ const PromptDetailDialog = ({
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditPromptText(prompt.promptText);
+    setEditAdditionalInput(prompt.additionalInput ?? "");
     setEditQuestion(prompt.question);
     setEditSteps(prompt.steps);
   };
@@ -169,6 +207,16 @@ const PromptDetailDialog = ({
                 </p>
               </div>
 
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">➕ Additional input (optional)</Label>
+                <RichTextEditor
+                  value={editAdditionalInput}
+                  onChange={setEditAdditionalInput}
+                  placeholder="Optional extra context, constraints, or examples..."
+                  readOnly={false}
+                />
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
                   <X className="w-4 h-4 mr-1" />
@@ -200,6 +248,20 @@ const PromptDetailDialog = ({
                 </div>
               </div>
 
+              {canSeeAdditionalInput &&
+                (prompt.additionalInput?.replace(/<[^>]*>/g, "").trim() ?? "") !== "" && (
+                  <div className="space-y-1">
+                    <Label className="text-sm font-semibold">➕ Additional input</Label>
+                    <div className="border border-border rounded-lg p-4 bg-card">
+                      <RichTextEditor
+                        value={prompt.additionalInput ?? ""}
+                        onChange={() => {}}
+                        readOnly={true}
+                      />
+                    </div>
+                  </div>
+                )}
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Created by</Label>
@@ -226,29 +288,51 @@ const PromptDetailDialog = ({
                 </div>
               </div>
 
-              {showFeedbackSection && existingFeedbacks.length > 0 && (
-                <div className="space-y-2 border-t border-border pt-3">
-                  <Label className="text-sm font-semibold">💬 Previous Feedback</Label>
-                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {existingFeedbacks.map((fb) => (
-                      <div key={fb.id} className="bg-muted/20 p-3 rounded-lg">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="text-xs font-semibold">{fb.userName}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(fb.createdAt).toLocaleDateString()}
-                          </span>
+              {showFeedbackSection && visiblePreviousFeedbacks.length > 0 && (
+                <Collapsible
+                  open={previousFeedbackOpen}
+                  onOpenChange={setPreviousFeedbackOpen}
+                  className="border-t border-border pt-3"
+                >
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <span>
+                        {userRole === "moderator" ? "💬 Previous feedback" : "💬 Your feedback"}
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                          previousFeedbackOpen && "rotate-180",
+                        )}
+                        aria-hidden
+                      />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 overflow-hidden">
+                    <div className="mt-2 space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                      {visiblePreviousFeedbacks.map((fb) => (
+                        <div key={fb.id} className="bg-muted/20 p-3 rounded-lg">
+                          <div className="flex justify-between items-start gap-2 mb-1">
+                            <span className="text-xs font-semibold">{fb.userName}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {new Date(fb.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{fb.feedback}</p>
                         </div>
-                        <p className="text-sm">{fb.feedback}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
 
               {showFeedbackSection && (
                 <div className="space-y-2 border-t border-border pt-3">
                   <Label className="text-sm font-semibold">
-                    {userRole === "moderator" ? "📋 Add Review Notes" : "💬 Your Feedback"}
+                    {userRole === "moderator" ? "📋 Add Review Notes" : "Feedback"}
                   </Label>
                   <Textarea
                     placeholder={

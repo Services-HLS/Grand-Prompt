@@ -10,6 +10,7 @@ import PostPrompt from "./pages/PostPrompt.tsx";
 import MyPrompts from "./pages/MyPrompts.tsx";
 import PendingApprovals from "./pages/PendingApprovals.tsx";
 import AllPrompts from "./pages/AllPrompts.tsx";
+import ArchivePrompts from "./pages/ArchivePrompts.tsx";
 import Analytics from "./pages/Analytics.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import { PromptsProvider } from "./context/PromptsContext.tsx";
@@ -66,6 +67,14 @@ const App = () => (
                   element={
                     <RequireAuth role="moderator">
                       <AppShell><AllPrompts /></AppShell>
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/archive"
+                  element={
+                    <RequireAuth role="moderator">
+                      <AppShell><ArchivePrompts /></AppShell>
                     </RequireAuth>
                   }
                 />

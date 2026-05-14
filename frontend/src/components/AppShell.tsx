@@ -106,6 +106,7 @@ const moderatorNav: NavItem[] = [
   { to: "/", label: "Browse Prompts" },
   { to: "/pending", label: "Pending Approvals" },
   { to: "/all", label: "All Prompts" },
+  { to: "/archive", label: "Archive" },
   { to: "/analytics", label: "Analytics" },
 ];
 

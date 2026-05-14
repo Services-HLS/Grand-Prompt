@@ -142,6 +142,8 @@ export type Prompt = {
   steps: string;
   question: string;
   promptText: string;
+  /** Optional rich HTML; same storage capacity as promptText */
+  additionalInput?: string;
   createdBy: string;
   employeeId: string;
   status: "pending" | "approved" | "rejected";
@@ -152,6 +154,29 @@ export type Prompt = {
   likes: number;
   dislikes: number;
   category: string;
+};
+
+/** Row from `ArchivedPrompt` (moderator archive list / restore). */
+export type ArchivedPromptRow = {
+  id: number;
+  originalPromptId: number;
+  stage: string;
+  steps: string;
+  question: string;
+  promptText: string;
+  additionalInput?: string | null;
+  category: string;
+  status: string;
+  rejectionReason?: string | null;
+  submittedAt: string;
+  approvedAt?: string | null;
+  approvedBy?: number | null;
+  approvedByDisplay?: string | null;
+  createdById: number;
+  createdByDisplay: string;
+  archivedAt: string;
+  archivedById?: number | null;
+  archivedByDisplay?: string | null;
 };
 
 export const STAGES = [

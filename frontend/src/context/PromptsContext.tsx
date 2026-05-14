@@ -265,10 +265,15 @@
 // };
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
-import { type Prompt } from "@/data/prompts";
+import { type Prompt, type ArchivedPromptRow } from "@/data/prompts";
 import { useAuth } from "@/context/AuthContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
+
+const apiBase = () => {
+  const raw = typeof API_BASE_URL === "string" ? API_BASE_URL.trim() : "";
+  return raw.replace(/\/$/, "");
+};
 
 export type PromptFeedback = {
   id: number;
@@ -284,6 +289,7 @@ type NewPromptInput = {
   steps: string;
   question: string;
   promptText: string;
+  additionalInput?: string;
   createdBy: string;
   employeeId: string;
   category?: string;
@@ -299,32 +305,75 @@ type PromptsContextValue = {
   addFeedback: (promptId: number, feedback: string, userId: string, userName: string) => Promise<void>;
   getFeedbacks: (promptId: number) => PromptFeedback[];
   updatePrompt: (id: number, updates: Partial<Prompt>) => Promise<void>;
+  archivePrompts: (ids: number[]) => Promise<void>;
+  archivedPrompts: ArchivedPromptRow[];
+  fetchArchivedPrompts: () => Promise<void>;
+  restoreArchivedPrompt: (archiveRowId: number) => Promise<void>;
+  restoreArchivedPrompts: (archiveRowIds: number[]) => Promise<void>;
 };
 
 const PromptsContext = createContext<PromptsContextValue | undefined>(undefined);
+
+function mapArchivedRowFromApi(row: any): ArchivedPromptRow {
+  return {
+    id: row.id,
+    originalPromptId: row.originalPromptId,
+    stage: row.stage,
+    steps: row.steps,
+    question: row.question,
+    promptText: row.promptText,
+    additionalInput: row.additionalInput ?? null,
+    category: row.category ?? "grant",
+    status: String(row.status ?? "PENDING").toLowerCase(),
+    rejectionReason: row.rejectionReason ?? null,
+    submittedAt: row.submittedAt,
+    approvedAt: row.approvedAt ?? null,
+    approvedBy: row.approvedBy ?? null,
+    approvedByDisplay: row.approvedByDisplay ?? null,
+    createdById: row.createdById,
+    createdByDisplay: row.createdByDisplay ?? "Unknown",
+    archivedAt: row.archivedAt,
+    archivedById: row.archivedById ?? null,
+    archivedByDisplay: row.archivedByDisplay ?? null,
+  };
+}
 
 export const PromptsProvider = ({ children }: { children: ReactNode }) => {
   const { token } = useAuth();
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [feedbacks, setFeedbacks] = useState<PromptFeedback[]>([]);
+  const [archivedPrompts, setArchivedPrompts] = useState<ArchivedPromptRow[]>([]);
 
-  const mapPrompt = (row: any): Prompt => ({
-    id: row.id,
-    stage: row.stage,
-    steps: row.steps,
-    question: row.question,
-    promptText: row.promptText,
-    createdBy: row.createdBy?.name ?? "Unknown",
-    employeeId: row.createdBy?.email ?? "",
-    status: String(row.status || "PENDING").toLowerCase() as Prompt["status"],
-    rejectionReason: row.rejectionReason ?? undefined,
-    submittedAt: row.submittedAt ?? new Date().toISOString(),
-    approvedAt: row.approvedAt ?? undefined,
-    approvedBy: row.approvedBy ? String(row.approvedBy) : undefined,
-    likes: row.likes ?? 0,
-    dislikes: row.dislikes ?? 0,
-    category: row.category ?? "grant",
-  });
+  const mapPrompt = (row: any): Prompt => {
+    const additionalRaw =
+      row.additionalInput ??
+      row.additional_input ??
+      row.additionalinput ??
+      "";
+    return {
+      id: row.id,
+      stage: row.stage,
+      steps: row.steps,
+      question: row.question,
+      promptText: row.promptText,
+      additionalInput:
+        additionalRaw === null || additionalRaw === undefined ? "" : String(additionalRaw),
+      createdBy: row.createdBy?.name ?? "Unknown",
+      employeeId: row.createdBy?.email ?? "",
+      status: String(row.status || "PENDING").toLowerCase() as Prompt["status"],
+      rejectionReason: row.rejectionReason ?? undefined,
+      submittedAt: row.submittedAt ?? new Date().toISOString(),
+      approvedAt: row.approvedAt ?? undefined,
+      approvedBy:
+        row.approvedByDisplay ??
+        row.approver?.name ??
+        row.approver?.email ??
+        (row.approvedBy != null ? String(row.approvedBy) : undefined),
+      likes: row.likes ?? 0,
+      dislikes: row.dislikes ?? 0,
+      category: row.category ?? "grant",
+    };
+  };
 
   const authHeaders = useCallback(
     () => ({
@@ -334,17 +383,53 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
     [token],
   );
 
-  const fetchPrompts = useCallback(async () => {
+  const fetchArchivedPrompts = useCallback(async () => {
+    const base = apiBase();
+    if (!base || !token) {
+      setArchivedPrompts([]);
+      return;
+    }
     try {
-      const response = await fetch(`${API_BASE_URL}/prompts`);
-      if (!response.ok) return;
-      const rows = await response.json();
-      const mappedPrompts = rows.map(mapPrompt);
+      const res = await fetch(`${base}/prompts/archived`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      setArchivedPrompts((data as any[]).map(mapArchivedRowFromApi));
+    } catch {
+      /* keep list */
+    }
+  }, [authHeaders, token]);
+
+  const fetchPrompts = useCallback(async () => {
+    const base = apiBase();
+    if (!base) return;
+    try {
+      const [promptRes, usersRes] = await Promise.all([
+        fetch(`${base}/prompts`),
+        fetch(`${base}/auth/users`),
+      ]);
+      if (!promptRes.ok) return;
+      const rows = await promptRes.json();
+      const users = usersRes.ok ? await usersRes.json() : [];
+      const userById = new Map<number, { name: string; email: string }>(
+        (users as { id: number; name: string; email: string }[]).map((u) => [Number(u.id), u]),
+      );
+
+      const mappedPrompts = rows.map((row: any) => {
+        const p = mapPrompt(row);
+        const approverId = row.approvedBy != null ? Number(row.approvedBy) : NaN;
+        if (Number.isFinite(approverId) && approverId > 0) {
+          const u = userById.get(approverId);
+          if (u) {
+            p.approvedBy = u.name?.trim() || u.email || p.approvedBy;
+          }
+        }
+        return p;
+      });
       setPrompts(mappedPrompts);
 
       const feedbackRows = await Promise.all(
         mappedPrompts.map(async (prompt) => {
-          const feedbackResponse = await fetch(`${API_BASE_URL}/prompts/${prompt.id}/feedback`);
+          const feedbackResponse = await fetch(`${base}/prompts/${prompt.id}/feedback`);
           if (!feedbackResponse.ok) return [];
           const data = await feedbackResponse.json();
           return data.map(
@@ -370,7 +455,9 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchPrompts]);
 
   const addPrompt = async (input: NewPromptInput) => {
-    const response = await fetch(`${API_BASE_URL}/prompts`, {
+    const base = apiBase();
+    if (!base) throw new Error("VITE_API_URL is not configured");
+    const response = await fetch(`${base}/prompts`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({
@@ -378,6 +465,7 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
         steps: input.steps,
         question: input.question,
         promptText: input.promptText,
+        ...(input.additionalInput?.trim() ? { additionalInput: input.additionalInput } : {}),
         category: input.category ?? "grant",
       }),
     });
@@ -386,7 +474,7 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const approvePrompt = async (id: number, _moderatorEmail: string) => {
-    const response = await fetch(`${API_BASE_URL}/prompts/${id}/approve`, {
+    const response = await fetch(`${apiBase()}/prompts/${id}/approve`, {
       method: "POST",
       headers: authHeaders(),
     });
@@ -395,7 +483,7 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const rejectPrompt = async (id: number, reason: string, _moderatorEmail: string) => {
-    const response = await fetch(`${API_BASE_URL}/prompts/${id}/reject`, {
+    const response = await fetch(`${apiBase()}/prompts/${id}/reject`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ reason }),
@@ -405,7 +493,7 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const react = async (id: number, value: "LIKE" | "DISLIKE") => {
-    const response = await fetch(`${API_BASE_URL}/prompts/${id}/reaction`, {
+    const response = await fetch(`${apiBase()}/prompts/${id}/reaction`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ value }),
@@ -428,7 +516,7 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addFeedback = async (promptId: number, feedback: string, _userId: string, _userName: string) => {
-    const response = await fetch(`${API_BASE_URL}/prompts/${promptId}/feedback`, {
+    const response = await fetch(`${apiBase()}/prompts/${promptId}/feedback`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ feedback }),
@@ -449,7 +537,7 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
   const getFeedbacks = (promptId: number) => feedbacks.filter((f) => f.promptId === promptId);
 
   const updatePrompt = async (id: number, updates: Partial<Prompt>) => {
-    const response = await fetch(`${API_BASE_URL}/prompts/${id}`, {
+    const response = await fetch(`${apiBase()}/prompts/${id}`, {
       method: "PATCH",
       headers: authHeaders(),
       body: JSON.stringify({
@@ -457,11 +545,62 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
         steps: updates.steps,
         question: updates.question,
         promptText: updates.promptText,
+        additionalInput: updates.additionalInput,
         category: updates.category,
       }),
     });
     if (!response.ok) throw new Error("Failed to update prompt");
     await fetchPrompts();
+  };
+
+  const archivePrompts = async (ids: number[]) => {
+    const base = apiBase();
+    if (!base) throw new Error("VITE_API_URL is not configured");
+    const response = await fetch(`${base}/prompts/archive`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ ids }),
+    });
+    if (!response.ok) {
+      let message = "Failed to archive prompts";
+      try {
+        const body = await response.json();
+        if (body?.message) message = body.message;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(message);
+    }
+    await fetchPrompts();
+    await fetchArchivedPrompts();
+  };
+
+  const restoreArchivedPrompts = async (archiveRowIds: number[]) => {
+    const base = apiBase();
+    if (!base) throw new Error("VITE_API_URL is not configured");
+    const unique = [...new Set(archiveRowIds)].filter((id) => Number.isFinite(id) && id > 0);
+    if (unique.length === 0) return;
+    const response = await fetch(`${base}/prompts/archived/restore`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ ids: unique }),
+    });
+    if (!response.ok) {
+      let message = "Failed to restore prompts";
+      try {
+        const body = await response.json();
+        if (body?.message) message = body.message;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(message);
+    }
+    await fetchPrompts();
+    await fetchArchivedPrompts();
+  };
+
+  const restoreArchivedPrompt = async (archiveRowId: number) => {
+    await restoreArchivedPrompts([archiveRowId]);
   };
 
   return (
@@ -474,7 +613,12 @@ export const PromptsProvider = ({ children }: { children: ReactNode }) => {
       updateDislikes,
       addFeedback,
       getFeedbacks,
-      updatePrompt
+      updatePrompt,
+      archivePrompts,
+      archivedPrompts,
+      fetchArchivedPrompts,
+      restoreArchivedPrompt,
+      restoreArchivedPrompts,
     }}>
       {children}
     </PromptsContext.Provider>

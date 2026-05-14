@@ -23,6 +23,7 @@ const schema = z.object({
   steps: z.string().trim().min(1, "Steps are required").max(120),
   question: z.string().trim().min(1, "Question is required").max(500),
   promptText: z.string().trim().min(10, "Prompt must be at least 10 characters").max(4000),
+  additionalInput: z.string().optional(),
 });
 
 const PostPrompt = () => {
@@ -34,13 +35,14 @@ const PostPrompt = () => {
   const [steps, setSteps] = useState("");
   const [question, setQuestion] = useState("");
   const [promptText, setPromptText] = useState("");
+  const [additionalInput, setAdditionalInput] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const stripHtml = (value: string) => value.replace(/<[^>]*>/g, "").trim();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = schema.safeParse({ stage, steps, question, promptText });
+    const parsed = schema.safeParse({ stage, steps, question, promptText, additionalInput });
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
       parsed.error.issues.forEach((issue) => {
@@ -54,6 +56,11 @@ const PostPrompt = () => {
       setErrors({ promptText: "Prompt must be between 10 and 4000 characters" });
       return;
     }
+    const additionalPlain = stripHtml(parsed.data.additionalInput ?? "");
+    if (additionalPlain.length > 4000) {
+      setErrors({ additionalInput: "Additional input must be at most 4000 characters of visible text" });
+      return;
+    }
     setErrors({});
     if (!user) return;
     addPrompt({
@@ -61,6 +68,7 @@ const PostPrompt = () => {
       steps: parsed.data.steps,
       question: parsed.data.question,
       promptText: parsed.data.promptText,
+      additionalInput: parsed.data.additionalInput?.trim() ? parsed.data.additionalInput : undefined,
       createdBy: user.name,
       employeeId: user.email,
     });
@@ -127,6 +135,22 @@ const PostPrompt = () => {
             className="min-h-[220px]"
           />
           {errors.promptText && <p className="text-sm text-destructive">{errors.promptText}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="additionalInput">Additional input (optional)</Label>
+          <p className="text-xs text-muted-foreground">
+            Extra context, constraints, or examples for the model. Rich text is supported.
+          </p>
+          <RichTextEditor
+            value={additionalInput}
+            onChange={setAdditionalInput}
+            placeholder="Optional: add background, format requirements, data tables, etc."
+            className="min-h-[180px]"
+          />
+          {errors.additionalInput && (
+            <p className="text-sm text-destructive">{errors.additionalInput}</p>
+          )}
         </div>
 
         <div className="flex justify-end gap-2">

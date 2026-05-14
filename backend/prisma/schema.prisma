@@ -42,11 +42,12 @@ model Prompt {
   id              Int          @id @default(autoincrement())
   stage           String
   steps           String
-  question        String
-  promptText      String
+  question        String       @db.Text
+  promptText      String       @db.LongText
+  additionalInput String?    @db.LongText
   category        String       @default("grant")
   status          PromptStatus @default(PENDING)
-  rejectionReason String?
+  rejectionReason String?      @db.Text
   submittedAt     DateTime     @default(now())
   approvedAt      DateTime?
   approvedBy      Int?
@@ -54,6 +55,29 @@ model Prompt {
   createdBy       User         @relation("PromptAuthor", fields: [createdById], references: [id], onDelete: Cascade)
   feedbacks       Feedback[]
   reactions       Reaction[]
+}
+
+/// Snapshot of a prompt row when a moderator archives it (same fields as `Prompt` plus archive metadata).
+model ArchivedPrompt {
+  id                 Int          @id @default(autoincrement())
+  originalPromptId   Int
+  stage              String
+  steps              String
+  question           String       @db.Text
+  promptText         String       @db.LongText
+  additionalInput    String?      @db.LongText
+  category           String       @default("grant")
+  status             PromptStatus
+  rejectionReason    String?      @db.Text
+  submittedAt        DateTime
+  approvedAt         DateTime?
+  approvedBy         Int?
+  createdById        Int
+  archivedAt         DateTime     @default(now())
+  archivedById       Int?
+
+  @@index([originalPromptId])
+  @@index([archivedAt])
 }
 
 model Feedback {

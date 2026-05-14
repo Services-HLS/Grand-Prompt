@@ -109,28 +109,32 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, Clock, XCircle, FileText, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { stageBadgeClass, stepsBadgeClass } from "@/lib/stageColors";
+import RichTextEditor from "@/components/RichTextEditor";
 
 type Filter = "all" | "pending" | "approved" | "rejected";
 
-const truncate = (s: string, n = 80) => (s.length > n ? `${s.slice(0, n)}…` : s);
+const htmlToPlainText = (html: string) => {
+  const raw = html?.trim() ?? "";
+  if (!raw || !/<[a-z][\s\S]*>/i.test(raw)) return raw;
+  try {
+    const doc = new DOMParser().parseFromString(raw, "text/html");
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+  } catch {
+    return raw.replace(/<[^>]+>/gi, " ").replace(/\s+/g, " ").trim();
+  }
+};
+
+const hasAdditionalInput = (additional?: string) =>
+  htmlToPlainText(additional ?? "").length > 0;
 
 const MyPrompts = () => {
   const { user } = useAuth();
@@ -250,7 +254,7 @@ const MyPrompts = () => {
             <div className="text-center py-8 text-muted-foreground">
               <div className="text-4xl mb-2">📝</div>
               <p>You haven't submitted any prompts yet.</p>
-              <Button variant="link" className="mt-2" onClick={() => window.location.href = "/post-prompt"}>
+              <Button variant="link" className="mt-2" onClick={() => (window.location.href = "/post")}>
                 Post your first prompt →
               </Button>
             </div>
@@ -275,15 +279,55 @@ const MyPrompts = () => {
                     📌 {p.question.length > 100 ? p.question.substring(0, 100) + "..." : p.question}
                   </p>
 
-                  <div className="text-sm text-muted-foreground mb-2">
+                  <div className="text-sm text-muted-foreground mb-2 space-y-2">
                     {expandedId === p.id ? (
-                      <div className="bg-prompt-box rounded p-3 mt-2">
-                        {p.promptText.replace(/<[^>]*>/g, '')}
+                      <div className="space-y-3 mt-1">
+                        <div>
+                          <p className="font-medium text-foreground text-xs mb-1.5">Prompt</p>
+                          <div className="border border-border rounded-lg p-3 bg-card">
+                            <RichTextEditor
+                              value={p.promptText}
+                              onChange={() => {}}
+                              readOnly
+                              className="min-h-[120px]"
+                            />
+                          </div>
+                        </div>
+                        {hasAdditionalInput(p.additionalInput) ? (
+                          <div>
+                            <p className="font-medium text-foreground text-xs mb-1.5">Additional input</p>
+                            <div className="border border-border rounded-lg p-3 bg-card">
+                              <RichTextEditor
+                                value={p.additionalInput ?? ""}
+                                onChange={() => {}}
+                                readOnly
+                                className="min-h-[100px]"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic border border-dashed border-border rounded-lg px-3 py-2">
+                            No additional input for this submission.
+                          </p>
+                        )}
                       </div>
                     ) : (
-                      <p className="line-clamp-2">
-                        {p.promptText.replace(/<[^>]*>/g, '')}
-                      </p>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs font-medium text-foreground">Prompt</p>
+                          <p className="line-clamp-2 text-sm">
+                            {htmlToPlainText(p.promptText)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-foreground">Additional input</p>
+                          <p className="line-clamp-2 text-sm">
+                            {hasAdditionalInput(p.additionalInput)
+                              ? htmlToPlainText(p.additionalInput ?? "")
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
                     )}
                     <Button
                       variant="ghost"
