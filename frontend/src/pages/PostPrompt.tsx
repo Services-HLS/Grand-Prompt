@@ -140,7 +140,7 @@ const PostPrompt = () => {
         <div className="space-y-2">
           <Label htmlFor="additionalInput">Additional input (optional)</Label>
           <p className="text-xs text-muted-foreground">
-            Extra context, constraints, or examples for the model. Rich text is supported.
+            Extra context, constraints, or examples for the model. 
           </p>
           <RichTextEditor
             value={additionalInput}
